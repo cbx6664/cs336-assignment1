@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+from collections import Counter, defaultdict
 from collections.abc import Iterable
-from typing import IO, Any, BinaryIO
+from typing import IO, Any, BinaryIO, Dict, Tuple
 
 import numpy.typing as npt
 import torch
+import regex as re
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
@@ -452,7 +454,9 @@ def run_cross_entropy(
     raise NotImplementedError
 
 
-def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+def run_gradient_clipping(
+    parameters: Iterable[torch.nn.Parameter], max_l2_norm: float
+) -> None:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
 
     Args:
@@ -589,4 +593,94 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    # step1: initialize the vocab
+    vocab: Dict[int, bytes] = {i: bytes([i]) for i in range(256)}
+    next_id = 256
+
+    special_token_bytes = [token.encode("utf-8") for token in special_tokens]
+    existing_vocab_values = set(vocab.values())
+    for special_token_byte in special_token_bytes:
+        if special_token_byte not in existing_vocab_values:
+            vocab[next_id] = special_token_byte
+            existing_vocab_values.add(special_token_byte)
+            next_id += 1
+
+    # step2: pre-tokenization
+    pre_tokens_cnt = defaultdict(int)
+
+    def to_bytes_tuple(word: str) -> Tuple[bytes]:
+        l = list(tuple(word.encode("utf-8")))
+        l = [bytes([x]) for x in l]
+        return tuple(l)
+
+    with open(input_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    chunks = re.split("|".join(map(re.escape, special_tokens)), text)
+
+    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
+    for chunk in chunks:
+        for m in re.finditer(PAT, chunk):
+            word = m.group(0)
+            pre_tokens_cnt[to_bytes_tuple(word)] += 1
+
+    # step3: compute BPE merges
+    merges = []
+
+    while len(vocab) < vocab_size:
+        pair_counts = defaultdict(int)
+
+        # count all adjacent byte pairs
+        for token, cnt in pre_tokens_cnt.items():
+            for i in range(len(token) - 1):
+                pair = (token[i], token[i + 1])
+                pair_counts[pair] += cnt
+
+        # no more pairs to merge
+        if not pair_counts:
+            break
+
+        # find the most frequent pairs
+        max_count = max(pair_counts.values())
+        candidates = [k for k, v in pair_counts.items() if v == max_count]
+        best_pair = max(candidates)
+
+        a, b = best_pair
+
+        # create new token
+        new_token = a + b
+        vocab[next_id] = new_token
+        next_id += 1
+        
+        # record the merge
+        merges.append((a, b))
+
+        # apply the merge to all pre-tokenized sequences
+        # collect the merge
+        changes = []
+        for token, cnt in pre_tokens_cnt.items():
+            # find all occurrences of the 'best_pair' in 'token'
+            indices = [
+                i for i in range(len(token) - 1) if token[i : i + 2] == best_pair
+            ]
+            if indices:
+                # replace each occurrence with 'new_token'
+                new_pre_token = []
+                i = 0
+                while i < len(token):
+                    if i in indices:
+                        new_pre_token.append(new_token)
+                        i += 2
+                    else:
+                        new_pre_token.append(token[i])
+                        i += 1
+                new_pre_token = tuple(new_pre_token)
+                changes.append((token, new_pre_token, cnt))
+
+        # apply the changes
+        for old_token, new_pre_token, cnt in changes:
+            pre_tokens_cnt[new_pre_token] = pre_tokens_cnt.get(new_pre_token, 0) + cnt
+            del pre_tokens_cnt[old_token]
+
+    return vocab, merges
