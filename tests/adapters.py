@@ -10,6 +10,7 @@ import torch
 import regex as re
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+from torch import nn
 
 
 def run_linear(
@@ -30,8 +31,13 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
+    from cs336_basics.Linear import Linear
 
-    raise NotImplementedError
+    linear = Linear(d_in, d_out)
+
+    linear.load_state_dict({"weight": weights})
+
+    return linear(in_features)
 
 
 def run_embedding(
@@ -289,7 +295,7 @@ def run_transformer_lm(
     weights: dict[str, Tensor],
     in_indices: Int[Tensor, " batch_size sequence_length"],
 ) -> Float[Tensor, " batch_size sequence_length vocab_size"]:
-    """Given the weights of a Transformer language model and input indices,
+    """Given the weights of a Transformer language model and input indices, 
     return the output of running a forward pass on the input indices.
 
     This function should use RoPE.
@@ -652,7 +658,7 @@ def run_train_bpe(
         new_token = a + b
         vocab[next_id] = new_token
         next_id += 1
-        
+
         # record the merge
         merges.append((a, b))
 
