@@ -5,6 +5,7 @@ import torch
 class RMSNorm(nn.Module):
     def __init__(self, d_model: int, eps: float = 1e-5, device=None, dtype=None):
         super().__init__()
+        self.d_model = d_model
         self.eps = eps
         # shape of weight: (d_model,)
         self.weight = nn.Parameter(torch.ones(d_model))

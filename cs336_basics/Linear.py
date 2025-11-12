@@ -11,6 +11,8 @@ class Linear(nn.Module):
         dtype: torch.dtype | None = None,
     ):
         super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
 
         # 1. create parameter tensor
         self.weight = nn.Parameter(
