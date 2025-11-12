@@ -58,8 +58,18 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    # 1. 导入 Embedding 类
+    from cs336_basics.Embedding import Embedding
+    
+    # 2. 创建 Embedding 实例
+    embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
+    
+    # 3. 加载测试提供的权重
+    # 权重的 key 需要和你在 __init__ 中定义的参数名一致
+    embedding.load_state_dict({'emb_matrix': weights})
+    
+    # 4. 运行前向传播，查找 token_ids 对应的 embedding 向量
+    return embedding(token_ids)
 
 
 def run_swiglu(
