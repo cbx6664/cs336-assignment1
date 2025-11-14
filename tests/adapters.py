@@ -60,14 +60,14 @@ def run_embedding(
     """
     # 1. 导入 Embedding 类
     from cs336_basics.Embedding import Embedding
-    
+
     # 2. 创建 Embedding 实例
     embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
-    
+
     # 3. 加载测试提供的权重
     # 权重的 key 需要和你在 __init__ 中定义的参数名一致
-    embedding.load_state_dict({'emb_matrix': weights})
-    
+    embedding.load_state_dict({"emb_matrix": weights})
+
     # 4. 运行前向传播，查找 token_ids 对应的 embedding 向量
     return embedding(token_ids)
 
@@ -101,7 +101,13 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    from cs336_basics.SwiGlu import SwiGlu
+
+    swiGlu = SwiGlu(d_model, d_ff)
+    swiGlu.load_state_dict(
+        {"w1.weight": w1_weight, "w2.weight": w2_weight, "w3.weight": w3_weight}
+    )
+    return swiGlu(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -305,7 +311,7 @@ def run_transformer_lm(
     weights: dict[str, Tensor],
     in_indices: Int[Tensor, " batch_size sequence_length"],
 ) -> Float[Tensor, " batch_size sequence_length vocab_size"]:
-    """Given the weights of a Transformer language model and input indices, 
+    """Given the weights of a Transformer language model and input indices,
     return the output of running a forward pass on the input indices.
 
     This function should use RoPE.
@@ -398,13 +404,13 @@ def run_rmsnorm(
     """
     # 1. 导入 RMSNorm 类
     from cs336_basics.RMSNorm import RMSNorm
-    
+
     # 2. 创建 RMSNorm 实例
     rmsnorm = RMSNorm(d_model=d_model, eps=eps)
-    
+
     # 3. 加载测试提供的权重
-    rmsnorm.load_state_dict({'weight': weights})
-    
+    rmsnorm.load_state_dict({"weight": weights})
+
     # 4. 运行前向传播
     return rmsnorm(in_features)
 
